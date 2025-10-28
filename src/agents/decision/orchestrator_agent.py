@@ -53,10 +53,8 @@ class ConflictResolution:
 class ChainOfThoughtProcessor:
     """Chain-of-Thought reasoning for trading decisions"""
     
-    def __init__(self, openai_api_key: str):
-        self.llm = OpenAI(temperature=0.1, openai_api_key=openai_api_key)
-        self.reasoning_chain = None
-        self._initialize_reasoning_chain()
+    def __init__(self, llm_manager):
+        self.llm_manager = llm_manager
         
     def _initialize_reasoning_chain(self):
         """Initialize the Chain-of-Thought reasoning chain"""
@@ -127,34 +125,89 @@ class ChainOfThoughtProcessor:
                             market_context: Dict[str, Any]) -> Dict[str, Any]:
         """Perform Chain-of-Thought analysis of all signals"""
         
-        try:
-            reasoning_result = await asyncio.to_thread(
-                self.reasoning_chain.run,
-                technical_signal=json.dumps(technical_signal, indent=2),
-                fundamental_signal=json.dumps(fundamental_signal, indent=2),
-                sentiment_signal=json.dumps(sentiment_signal, indent=2),
-                symbol=market_context.get('symbol', 'UNKNOWN'),
-                current_price=market_context.get('current_price', 0),
-                market_regime=market_context.get('market_regime', 'UNKNOWN'),
-                volatility_level=market_context.get('volatility_level', 'MEDIUM')
-            )
-            
-            # Parse the reasoning result
-            parsed_reasoning = self._parse_reasoning_result(reasoning_result)
-            
+        if not self.llm_manager:
             return {
-                'reasoning': reasoning_result,
-                'parsed_decision': parsed_reasoning,
+                'reasoning': "LLM not available - using default logic",
+                'parsed_decision': self._default_decision(),
                 'timestamp': datetime.now().isoformat()
             }
+        
+        try:
+            # Create comprehensive prompt
+            prompt = self._create_analysis_prompt(
+                technical_signal, fundamental_signal, sentiment_signal, market_context
+            )
+            
+            # Get LLM analysis
+            response = await self.llm_manager.generate_text(prompt)
+            
+            if response.success:
+                parsed_reasoning = self._parse_reasoning_result(response.content)
+                return {
+                    'reasoning': response.content,
+                    'parsed_decision': parsed_reasoning,
+                    'timestamp': datetime.now().isoformat()
+                }
+            else:
+                logger.error(f"LLM analysis failed: {response.error}")
+                return {
+                    'reasoning': f"LLM analysis failed: {response.error}",
+                    'parsed_decision': self._default_decision(),
+                    'timestamp': datetime.now().isoformat()
+                }
             
         except Exception as e:
             logger.error(f"Error in Chain-of-Thought analysis: {e}")
             return {
-                'reasoning': "Error in LLM analysis",
+                'reasoning': f"Error in LLM analysis: {str(e)}",
                 'parsed_decision': self._default_decision(),
                 'timestamp': datetime.now().isoformat()
             }
+            
+    def _create_analysis_prompt(self, technical_signal, fundamental_signal, sentiment_signal, market_context) -> str:
+        """Create comprehensive analysis prompt"""
+        return f"""
+You are an expert AI trading orchestrator analyzing multiple agent signals to make trading decisions.
+
+Technical Analysis Signal: {json.dumps(technical_signal, indent=2)}
+Fundamental Analysis Signal: {json.dumps(fundamental_signal, indent=2)}
+Sentiment Analysis Signal: {json.dumps(sentiment_signal, indent=2)}
+
+Current Market Context:
+- Symbol: {market_context.get('symbol', 'UNKNOWN')}
+- Current Price: {market_context.get('current_price', 0)}
+- Market Regime: {market_context.get('market_regime', 'UNKNOWN')}
+- Volatility Level: {market_context.get('volatility_level', 'MEDIUM')}
+
+Please provide a step-by-step Chain-of-Thought analysis:
+
+1. SIGNAL ANALYSIS:
+   - What does each agent signal suggest?
+   - Are the signals aligned or conflicting?
+   - Which signals are strongest and why?
+
+2. MARKET CONTEXT:
+   - How do market conditions affect the signals?
+   - What are the key risks and opportunities?
+
+3. DECISION SYNTHESIS:
+   - What is the recommended action? (BUY/SELL/HOLD)
+   - What confidence level (0.0 to 1.0)?
+   - What position size percentage?
+   - What stop loss and take profit levels?
+
+4. RISK ASSESSMENT:
+   - What are the main risks?
+   - How should position be sized?
+
+Please format your final recommendation as:
+ACTION: [BUY/SELL/HOLD]
+CONFIDENCE: [0.0-1.0]
+POSITION_SIZE: [0.0-1.0]
+STOP_LOSS: [price or percentage]
+TAKE_PROFIT: [price or percentage]
+REASONING: [brief summary]
+"""
             
     def _parse_reasoning_result(self, reasoning_text: str) -> Dict[str, Any]:
         """Parse the LLM reasoning output into structured decision"""
@@ -385,14 +438,20 @@ class OrchestratorAgent(BaseAgent):
         self.pending_analyses = {}
         
         # Configuration
-        self.openai_api_key = config.get('openai_api_key')
         self.analysis_timeout = config.get('analysis_timeout', 30.0)
         self.min_confidence_threshold = config.get('min_confidence_threshold', 0.3)
         
+        # Initialize LLM manager
+        self.llm_manager = None
+        llm_config = config.get('llm_config', {})
+        if llm_config:
+            from src.llm import create_llm_manager
+            self.llm_manager = create_llm_manager(llm_config.get('providers', {}))
+        
     async def _initialize(self):
         """Initialize the orchestrator agent"""
-        if self.openai_api_key:
-            self.cot_processor = ChainOfThoughtProcessor(self.openai_api_key)
+        if self.llm_manager:
+            self.cot_processor = ChainOfThoughtProcessor(self.llm_manager)
         logger.info("Orchestrator Agent initialized")
         
     async def _cleanup(self):

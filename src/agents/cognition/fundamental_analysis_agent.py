@@ -154,34 +154,18 @@ class PEGCalculator:
 class DocumentAnalyzer:
     """Analyze financial documents using LLM"""
     
-    def __init__(self, openai_api_key: str):
-        self.llm = OpenAI(temperature=0, openai_api_key=openai_api_key)
-        self.embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+    def __init__(self, llm_manager):
+        self.llm_manager = llm_manager
         self.vector_store = None
         
     async def analyze_document(self, document_text: str, analysis_type: str) -> QualitativeAnalysis:
-        """Analyze document using RAG"""
+        """Analyze document using LLM"""
         try:
-            # Split document into chunks
-            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            chunks = text_splitter.split_text(document_text)
-            
-            # Create vector store
-            self.vector_store = FAISS.from_texts(chunks, self.embeddings)
-            
-            # Create QA chain
-            qa_chain = RetrievalQA.from_chain_type(
-                llm=self.llm,
-                chain_type="stuff",
-                retriever=self.vector_store.as_retriever()
-            )
-            
-            # Analyze different aspects
-            insights = await self._extract_insights(qa_chain)
-            risk_factors = await self._extract_risk_factors(qa_chain)
-            growth_drivers = await self._extract_growth_drivers(qa_chain)
-            sentiment = await self._analyze_sentiment(qa_chain)
-            
+            # Analyze different aspects using LLM
+            insights = await self._extract_insights(document_text)
+            risk_factors = await self._extract_risk_factors(document_text)
+            growth_drivers = await self._extract_growth_drivers(document_text)
+            sentiment = await self._analyze_sentiment(document_text)
             return QualitativeAnalysis(
                 sentiment_score=sentiment,
                 key_insights=insights,
@@ -197,6 +181,117 @@ class DocumentAnalyzer:
                 risk_factors=[],
                 growth_drivers=[]
             )
+            
+    async def _extract_insights(self, document_text: str) -> List[str]:
+        """Extract key insights from document"""
+        if not self.llm_manager:
+            return []
+            
+        prompt = f"""
+        Analyze the following financial document and extract key insights:
+        
+        {document_text[:2000]}...
+        
+        Provide 3-5 key insights about the company's financial performance and business outlook.
+        Focus on:
+        - Revenue trends and growth
+        - Profitability metrics
+        - Market position and competitive advantages
+        - Management outlook and strategy
+        
+        Format as a numbered list.
+        """
+        
+        response = await self.llm_manager.generate_text(prompt)
+        if response.success:
+            insights = response.content.split('\n')
+            return [insight.strip() for insight in insights if insight.strip()]
+        return []
+        
+    async def _extract_risk_factors(self, document_text: str) -> List[str]:
+        """Extract risk factors from document"""
+        if not self.llm_manager:
+            return []
+            
+        prompt = f"""
+        Analyze the following financial document and identify key risk factors:
+        
+        {document_text[:2000]}...
+        
+        Identify 3-5 main risk factors that could impact the company's performance:
+        - Market risks
+        - Operational risks
+        - Financial risks
+        - Regulatory risks
+        - Competitive risks
+        
+        Format as a numbered list.
+        """
+        
+        response = await self.llm_manager.generate_text(prompt)
+        if response.success:
+            risks = response.content.split('\n')
+            return [risk.strip() for risk in risks if risk.strip()]
+        return []
+        
+    async def _extract_growth_drivers(self, document_text: str) -> List[str]:
+        """Extract growth drivers from document"""
+        if not self.llm_manager:
+            return []
+            
+        prompt = f"""
+        Analyze the following financial document and identify key growth drivers:
+        
+        {document_text[:2000]}...
+        
+        Identify 3-5 key factors that could drive future growth:
+        - New products or services
+        - Market expansion opportunities
+        - Operational improvements
+        - Technology advantages
+        - Strategic initiatives
+        
+        Format as a numbered list.
+        """
+        
+        response = await self.llm_manager.generate_text(prompt)
+        if response.success:
+            drivers = response.content.split('\n')
+            return [driver.strip() for driver in drivers if driver.strip()]
+        return []
+        
+    async def _analyze_sentiment(self, document_text: str) -> float:
+        """Analyze sentiment of document"""
+        if not self.llm_manager:
+            return 0.5
+            
+        prompt = f"""
+        Analyze the overall sentiment of this financial document:
+        
+        {document_text[:2000]}...
+        
+        Rate the sentiment on a scale of 0 to 1 where:
+        - 0 = Very negative outlook
+        - 0.5 = Neutral outlook
+        - 1 = Very positive outlook
+        
+        Consider factors like:
+        - Management tone and confidence
+        - Financial performance trends
+        - Future guidance and outlook
+        - Market conditions and opportunities
+        
+        Respond with only a single number between 0 and 1.
+        """
+        
+        response = await self.llm_manager.generate_text(prompt)
+        if response.success:
+            try:
+                sentiment = float(response.content.strip())
+                return max(0, min(1, sentiment))  # Clamp between 0 and 1
+            except ValueError:
+                pass
+        return 0.5
             
     async def _extract_insights(self, qa_chain) -> List[str]:
         """Extract key insights from document"""
@@ -259,12 +354,18 @@ class FundamentalAnalysisAgent(BaseAgent):
         # Configuration
         self.discount_rate = config.get('discount_rate', 0.10)
         self.terminal_growth_rate = config.get('terminal_growth_rate', 0.02)
-        self.openai_api_key = config.get('openai_api_key')
+        
+        # Initialize LLM manager
+        self.llm_manager = None
+        llm_config = config.get('llm_config', {})
+        if llm_config:
+            from src.llm import create_llm_manager
+            self.llm_manager = create_llm_manager(llm_config.get('providers', {}))
         
     async def _initialize(self):
         """Initialize the fundamental analysis agent"""
-        if self.openai_api_key:
-            self.document_analyzer = DocumentAnalyzer(self.openai_api_key)
+        if self.llm_manager:
+            self.document_analyzer = DocumentAnalyzer(self.llm_manager)
         logger.info("Fundamental Analysis Agent initialized")
         
     async def _cleanup(self):

@@ -36,45 +36,65 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.8+
 - Windows environment (batch scripts provided)
-- API keys (optional for demo mode)
+- **For local LLM**: [Ollama](https://ollama.ai) (recommended for development)
+- **For cloud LLM**: API keys (optional, for production)
 
 ### Installation
 
 1. **Clone and Setup**
+
    ```bash
    git clone <repository>
    cd AuraTrade
    ```
 
 2. **Run Setup Script**
+
    ```bash
    003_setup.bat
    ```
+
    This will:
    - Install all Python dependencies
    - Create `.env` configuration file
    - Set up data directories
    - Validate installation
 
-3. **Configure API Keys** (Optional for demo)
-   Edit `.env` file with your API keys:
+3. **Configure LLM Provider**
+
+   **Option A: Local Ollama (Recommended for development)**
+
+   ```bash
+   # Install Ollama from https://ollama.ai
+   ollama pull llama3.1:8b
    ```
+
+   No API keys needed! See [Ollama Setup Guide](docs/OLLAMA_SETUP.md) for detailed instructions.
+
+   **Option B: Cloud APIs (For production)**
+
+   Edit `.env` file with your API keys:
+
+   ```env
    OPENAI_API_KEY=your_openai_api_key_here
    ALPACA_API_KEY=your_alpaca_api_key_here
    ALPACA_SECRET_KEY=your_alpaca_secret_key_here
    ```
 
 4. **Run AuraTrade**
+
    ```bash
    004_run.bat
    ```
+
    Choose from:
-   - Demo Mode (no API keys required)
-   - Live Trading (requires API keys)
-   - Status Check
-   - Custom symbols
+   - **Demo Mode** (no API keys required with Ollama)
+   - **Live Trading** (requires API keys)
+   - **Status Check**
+   - **Custom symbols**
 
 ## 📁 Project Structure
 
@@ -97,6 +117,142 @@ AuraTrade/
 ├── .env.example              # Environment template
 └── [setup scripts]           # Batch files for setup/run
 ```
+
+## 🏗️ System Architecture
+
+AuraTrade implements a sophisticated multi-agent architecture with flexible LLM integration. The system is designed for scalability, maintainability, and cost-effective development.
+
+### High-Level Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           AuraTrade Trading Platform                            │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  External Data → Data Ingestion → Analysis Agents → Orchestrator → Execution   │
+│                                                         │                       │
+│                                                         ▼                       │
+│                                                   Risk Management               │
+│                                                         │                       │
+│                                                         ▼                       │
+│                                                    Final Trade                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Agent Communication Flow
+
+```text
+┌─────────────┐    ┌─────────────────┐    ┌─────────────────────────────────┐
+│ Market Data │───▶│ Data Ingestion  │───▶│        Analysis Layer           │
+│ News Feeds  │    │     Agent       │    │                                 │
+│ Financial   │    │                 │    │ ┌─────────────┐ ┌─────────────┐ │
+│ Reports     │    │ • Data Cleaning │    │ │ Technical   │ │ Fundamental │ │
+└─────────────┘    │ • Caching       │    │ │ Analysis    │ │ Analysis    │ │
+                   │ • Validation    │    │ │             │ │             │ │
+                   └─────────────────┘    │ │ • RSI/MACD  │ │ • DCF Model │ │
+                                          │ │ • Patterns  │ │ • Ratios    │ │
+                                          │ │ • ML Signals│ │ • LLM Docs  │ │
+                                          │ └─────────────┘ └─────────────┘ │
+                                          │                                 │
+                                          │ ┌─────────────┐                 │
+                                          │ │ Sentiment   │                 │
+                                          │ │ Analysis    │                 │
+                                          │ │             │                 │
+                                          │ │ • News NLP  │                 │
+                                          │ │ • Social    │                 │
+                                          │ │ • Events    │                 │
+                                          │ └─────────────┘                 │
+                                          └─────────────────────────────────┘
+                                                          │
+                                                          ▼
+                                          ┌─────────────────────────────────┐
+                                          │        Orchestrator Agent       │
+                                          │                                 │
+                                          │ • Chain-of-Thought Reasoning    │
+                                          │ • Signal Aggregation            │
+                                          │ • Conflict Resolution           │
+                                          │ • Confidence Scoring            │
+                                          │ • Action Recommendation         │
+                                          └─────────────────────────────────┘
+                                                          │
+                                                          ▼
+                                          ┌─────────────────────────────────┐
+                                          │      Risk Management Agent      │
+                                          │                                 │
+                                          │ • Position Sizing               │
+                                          │ • Drawdown Monitoring           │
+                                          │ • Risk Limits Check             │
+                                          │ • Correlation Analysis          │
+                                          │ • Circuit Breakers              │
+                                          └─────────────────────────────────┘
+                                                          │
+                                                          ▼
+                                          ┌─────────────────────────────────┐
+                                          │       Execution Agent           │
+                                          │                                 │
+                                          │ • Order Management              │
+                                          │ • Broker Integration            │
+                                          │ • Trade Execution               │
+                                          │ • Portfolio Tracking            │
+                                          │ • Paper/Live Trading            │
+                                          └─────────────────────────────────┘
+```
+
+### LLM Provider Architecture
+
+AuraTrade features a flexible LLM provider system that enables cost-effective development with local models and reliable production deployment with cloud APIs:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            LLM Manager                                         │
+│                                                                                 │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐            │
+│  │   Primary LLM   │    │  Fallback LLMs  │    │  Health Monitor │            │
+│  │                 │    │                 │    │                 │            │
+│  │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ • Availability  │            │
+│  │ │   Ollama    │ │    │ │   OpenAI    │ │    │ • Response Time │            │
+│  │ │  (Local)    │ │    │ │  (Cloud)    │ │    │ • Error Rate    │            │
+│  │ │             │ │    │ │             │ │    │ • Auto-Failover │            │
+│  │ │ • llama3.1  │ │    │ │ • gpt-3.5   │ │    └─────────────────┘            │
+│  │ │ • Free      │ │    │ │ • Reliable  │ │                                   │
+│  │ │ • Private   │ │    │ │ • Fast      │ │    ┌─────────────────┐            │
+│  │ │ • Fast      │ │    │ └─────────────┘ │    │ Request Router  │            │
+│  │ └─────────────┘ │    │                 │    │                 │            │
+│  └─────────────────┘    │ ┌─────────────┐ │    │ • Load Balance  │            │
+│                         │ │ Anthropic   │ │    │ • Retry Logic   │            │
+│                         │ │  Claude     │ │    │ • Error Handle  │            │
+│                         │ │             │ │    │ • Cost Optimize │            │
+│                         │ │ • Advanced  │ │    └─────────────────┘            │
+│                         │ │ • Accurate  │ │                                   │
+│                         │ └─────────────┘ │                                   │
+│                         └─────────────────┘                                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Development Mode**: Use local Ollama for free LLM capabilities  
+**Production Mode**: Automatic failover to OpenAI/Anthropic for reliability
+
+### Quick Architecture Overview
+
+**Trading Decision Flow:**
+```
+Market Data → Data Ingestion → Analysis (Technical + Fundamental + Sentiment) 
+                    ↓
+     Orchestrator (AI Reasoning) → Risk Management → Trade Execution
+```
+
+**Agent Types:**
+- **Perception**: Data Ingestion Agent
+- **Cognition**: Technical Analysis, Fundamental Analysis, Sentiment Analysis Agents  
+- **Decision**: Orchestrator Agent (Chain-of-Thought reasoning)
+- **Action**: Execution Agent
+- **Safety**: Risk Management Agent
+
+**LLM Integration:**
+- **Local Development**: Ollama (free, private, fast)
+- **Production**: OpenAI/Anthropic with automatic failover
+- **Used for**: Document analysis, reasoning, decision synthesis
+
+For detailed architecture diagrams and technical specifications, see [System Architecture Documentation](docs/SYSTEM_ARCHITECTURE.md).
 
 ## 🔧 Configuration
 

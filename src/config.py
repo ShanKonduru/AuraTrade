@@ -40,6 +40,20 @@ class BrokerConfig:
 
 
 @dataclass
+class LLMProviderConfig:
+    """Configuration for LLM providers"""
+    enabled: bool = False
+    model: str = ""
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: int = 1000
+    timeout: int = 30
+    is_primary: bool = False
+    is_fallback: bool = True
+
+
+@dataclass
 class AuraTradeConfig:
     """Main configuration class for AuraTrade platform"""
     
@@ -51,12 +65,16 @@ class AuraTradeConfig:
     openai_api_key: Optional[str] = None
     alpaca_api_key: Optional[str] = None
     alpaca_secret_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
     
     # Configuration sections
     trading: TradingConfig = TradingConfig()
     agents: AgentConfig = AgentConfig()
     data: DataConfig = DataConfig()
     broker: BrokerConfig = BrokerConfig()
+    
+    # LLM Providers configuration
+    llm_providers: Dict[str, LLMProviderConfig] = None
     
     def __post_init__(self):
         """Load configuration from environment variables"""
@@ -68,6 +86,10 @@ class AuraTradeConfig:
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.alpaca_api_key = os.getenv("ALPACA_API_KEY")
         self.alpaca_secret_key = os.getenv("ALPACA_SECRET_KEY")
+        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        
+        # Initialize LLM providers configuration
+        self._setup_llm_providers()
         
         # Trading configuration
         self.trading.max_position_size = float(os.getenv("AURA_MAX_POSITION_SIZE", self.trading.max_position_size))
@@ -90,6 +112,41 @@ class AuraTradeConfig:
         self.broker.initial_cash = float(os.getenv("AURA_INITIAL_CASH", self.broker.initial_cash))
         self.broker.alpaca_paper = os.getenv("ALPACA_PAPER", "true").lower() == "true"
         
+    def _setup_llm_providers(self):
+        """Setup LLM providers configuration"""
+        self.llm_providers = {
+            "ollama": LLMProviderConfig(
+                enabled=os.getenv("AURA_LLM_OLLAMA_ENABLED", "true").lower() == "true",
+                model=os.getenv("AURA_LLM_OLLAMA_MODEL", "llama3.1"),
+                base_url=os.getenv("AURA_LLM_OLLAMA_URL", "http://localhost:11434"),
+                temperature=float(os.getenv("AURA_LLM_OLLAMA_TEMPERATURE", "0.7")),
+                max_tokens=int(os.getenv("AURA_LLM_OLLAMA_MAX_TOKENS", "2000")),
+                timeout=int(os.getenv("AURA_LLM_OLLAMA_TIMEOUT", "60")),
+                is_primary=os.getenv("AURA_LLM_OLLAMA_PRIMARY", "true").lower() == "true",
+                is_fallback=os.getenv("AURA_LLM_OLLAMA_FALLBACK", "true").lower() == "true"
+            ),
+            "openai": LLMProviderConfig(
+                enabled=os.getenv("AURA_LLM_OPENAI_ENABLED", "true").lower() == "true",
+                model=os.getenv("AURA_LLM_OPENAI_MODEL", "gpt-3.5-turbo"),
+                api_key=self.openai_api_key,
+                temperature=float(os.getenv("AURA_LLM_OPENAI_TEMPERATURE", "0.7")),
+                max_tokens=int(os.getenv("AURA_LLM_OPENAI_MAX_TOKENS", "1000")),
+                timeout=int(os.getenv("AURA_LLM_OPENAI_TIMEOUT", "30")),
+                is_primary=os.getenv("AURA_LLM_OPENAI_PRIMARY", "false").lower() == "true",
+                is_fallback=os.getenv("AURA_LLM_OPENAI_FALLBACK", "true").lower() == "true"
+            ),
+            "anthropic": LLMProviderConfig(
+                enabled=os.getenv("AURA_LLM_ANTHROPIC_ENABLED", "false").lower() == "true",
+                model=os.getenv("AURA_LLM_ANTHROPIC_MODEL", "claude-3-haiku-20240307"),
+                api_key=self.anthropic_api_key,
+                temperature=float(os.getenv("AURA_LLM_ANTHROPIC_TEMPERATURE", "0.7")),
+                max_tokens=int(os.getenv("AURA_LLM_ANTHROPIC_MAX_TOKENS", "1000")),
+                timeout=int(os.getenv("AURA_LLM_ANTHROPIC_TIMEOUT", "30")),
+                is_primary=os.getenv("AURA_LLM_ANTHROPIC_PRIMARY", "false").lower() == "true",
+                is_fallback=os.getenv("AURA_LLM_ANTHROPIC_FALLBACK", "true").lower() == "true"
+            )
+        }
+        
     def get_agent_configs(self) -> Dict[str, Dict[str, Any]]:
         """Get configuration dictionaries for each agent"""
         return {
@@ -104,14 +161,14 @@ class AuraTradeConfig:
             'fundamental_analysis': {
                 'discount_rate': 0.10,
                 'terminal_growth_rate': 0.02,
-                'openai_api_key': self.openai_api_key
+                'llm_config': self.get_llm_config()
             },
             'sentiment_analysis': {
                 'news_hours_back': self.data.news_hours_back,
                 'sentiment_threshold': 0.3
             },
             'orchestrator': {
-                'openai_api_key': self.openai_api_key,
+                'llm_config': self.get_llm_config(),
                 'analysis_timeout': 30.0,
                 'min_confidence_threshold': self.trading.min_confidence_threshold,
                 'agent_weights': {
@@ -133,6 +190,25 @@ class AuraTradeConfig:
                 'max_drawdown_limit': self.trading.max_drawdown_limit,
                 'daily_loss_limit': self.trading.daily_loss_limit,
                 'risk_per_trade': self.trading.risk_per_trade
+            }
+        }
+        
+    def get_llm_config(self) -> Dict[str, Any]:
+        """Get LLM configuration for agents"""
+        return {
+            'providers': {
+                name: {
+                    'enabled': config.enabled,
+                    'model': config.model,
+                    'api_key': config.api_key,
+                    'base_url': config.base_url,
+                    'temperature': config.temperature,
+                    'max_tokens': config.max_tokens,
+                    'timeout': config.timeout,
+                    'is_primary': config.is_primary,
+                    'is_fallback': config.is_fallback
+                }
+                for name, config in self.llm_providers.items()
             }
         }
         
@@ -166,7 +242,18 @@ class AuraTradeConfig:
             'environment': self.environment,
             'log_level': self.log_level,
             'has_openai_key': bool(self.openai_api_key),
-            'has_alpaca_keys': bool(self.alpaca_api_key and self.alpaca_secret_key),
+                'has_alpaca_keys': bool(self.alpaca_api_key and self.alpaca_secret_key),
+                'has_anthropic_key': bool(self.anthropic_api_key),
+                'llm_providers': {
+                    name: {
+                        'enabled': config.enabled,
+                        'model': config.model,
+                        'has_api_key': bool(config.api_key) if config.api_key else None,
+                        'is_primary': config.is_primary,
+                        'is_fallback': config.is_fallback
+                    }
+                    for name, config in self.llm_providers.items()
+                },
             'trading': {
                 'max_position_size': self.trading.max_position_size,
                 'max_drawdown_limit': self.trading.max_drawdown_limit,
