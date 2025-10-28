@@ -18,19 +18,19 @@ if "%choice%"=="1" (
     echo Starting AuraTrade in Demo Mode...
     echo This will show platform capabilities without live trading
     echo.
-    python main.py --mode demo
+    .venv\Scripts\python.exe main_simple.py --mode demo
 ) else if "%choice%"=="2" (
     echo.
     echo Starting AuraTrade in Live Trading Mode...
     echo This will perform actual trading using configured API keys
     echo Press Ctrl+C to stop
     echo.
-    python main.py --mode trade
+    .venv\Scripts\python.exe main_simple.py --mode trade
 ) else if "%choice%"=="3" (
     echo.
     echo Checking AuraTrade Status...
     echo.
-    python main.py --mode status
+    .venv\Scripts\python.exe main_simple.py --mode status
 ) else if "%choice%"=="4" (
     echo.
     set /p symbols="Enter symbols (space-separated, e.g., AAPL GOOGL TSLA): "
@@ -38,10 +38,10 @@ if "%choice%"=="1" (
     
     if "%duration%"=="" (
         echo Starting trading for symbols: %symbols%
-        python main.py --mode trade --symbols %symbols%
+        .venv\Scripts\python.exe main_simple.py --mode trade --symbols %symbols%
     ) else (
         echo Starting trading for symbols: %symbols% for %duration% minutes
-        python main.py --mode trade --symbols %symbols% --duration %duration%
+        .venv\Scripts\python.exe main_simple.py --mode trade --symbols %symbols% --duration %duration%
     )
 ) else (
     echo Invalid choice. Please run again and select 1-4.

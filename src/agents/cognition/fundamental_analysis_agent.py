@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 from loguru import logger
 
 from ..base_agent import BaseAgent, AgentMessage, AgentResponse
-from ...agent_types import AgentType, MessageType, ActionType, SignalConfidence
+from ..agent_types import AgentType, MessageType, ActionType, SignalConfidence
 
 
 @dataclass

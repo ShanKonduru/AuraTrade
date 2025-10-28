@@ -63,38 +63,134 @@
    - Set up data directories
    - Validate installation
 
-3. **Configure LLM Provider**
+## 🚀 How to Run AuraTrade
 
-   **Option A: Local Ollama (Recommended for development)**
+### Method 1: Using Batch Scripts (Windows - Recommended)
 
-   ```bash
-   # Install Ollama from https://ollama.ai
-   ollama pull llama3.1:8b
-   ```
+**Step 1: Initial Setup**
+```bash
+.\003_setup.bat
+```
+This will:
+- Install Python dependencies
+- Create virtual environment
+- Set up configuration files
+- Validate installation
 
-   No API keys needed! See [Ollama Setup Guide](docs/OLLAMA_SETUP.md) for detailed instructions.
+**Step 2: Run AuraTrade**
+```bash
+.\004_run.bat
+```
+This will show you a menu:
+```
+1. Demo Mode (no API keys required)
+2. Live Trading (requires API keys)
+3. Status Check
+4. Custom symbols
+```
 
-   **Option B: Cloud APIs (For production)**
+**Choose Option 1 for Demo Mode** - No API keys needed!
 
-   Edit `.env` file with your API keys:
+### Method 2: Direct Python Commands
 
+**Activate Virtual Environment:**
+```bash
+.venv\Scripts\activate.bat
+```
+
+**Run in Demo Mode:**
+```bash
+python main_simple.py --mode demo
+```
+
+**Check System Status:**
+```bash
+python main_simple.py --mode status
+```
+
+**Live Trading (requires API keys):**
+```bash
+python main_simple.py --mode trade --symbols AAPL GOOGL MSFT
+```
+
+### Method 3: Full System (Advanced)
+
+For the complete multi-agent system with all dependencies:
+
+**Install Additional Dependencies:**
+```bash
+pip install TA-Lib langchain transformers nltk textblob vaderSentiment
+```
+
+**Run Full System:**
+```bash
+python main.py --mode demo
+```
+
+### 🎮 Demo Mode Features
+
+The demo mode shows:
+- ✅ Multi-agent workflow simulation
+- ✅ Market data collection
+- ✅ Technical analysis (RSI, MACD)
+- ✅ Fundamental analysis (DCF, ratios)
+- ✅ Sentiment analysis (news, social)
+- ✅ AI-powered decision making
+- ✅ Risk management validation
+- ✅ Paper trading execution
+- ✅ Real-time progress display
+
+### 🔧 Configuration (Optional)
+
+**For LLM Integration:**
+1. Install Ollama: https://ollama.ai
+2. Download models: `ollama pull llama3.1:8b`
+3. See detailed guide: `docs/OLLAMA_SETUP.md`
+
+**For Live Trading:**
+1. Get Alpaca API keys: https://alpaca.markets
+2. Update `.env` file:
    ```env
-   OPENAI_API_KEY=your_openai_api_key_here
-   ALPACA_API_KEY=your_alpaca_api_key_here
-   ALPACA_SECRET_KEY=your_alpaca_secret_key_here
+   ALPACA_API_KEY=your_key_here
+   ALPACA_SECRET_KEY=your_secret_here
    ```
 
-4. **Run AuraTrade**
+### 📊 Sample Output
 
-   ```bash
-   004_run.bat
-   ```
+```
+🎮 Running AuraTrade in Demo Mode...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Collecting market data...
+✅ Market data collected (AAPL, GOOGL, MSFT)
 
-   Choose from:
-   - **Demo Mode** (no API keys required with Ollama)
-   - **Live Trading** (requires API keys)
-   - **Status Check**
-   - **Custom symbols**
+🔍 Running multi-agent analysis...
+  🤖 Technical Analysis: Complete
+  🤖 Fundamental Analysis: Complete  
+  🤖 Sentiment Analysis: Complete
+
+🧠 Orchestrator making decisions...
+  🎯 AAPL: BUY signal (Confidence: 85%)
+  🎯 GOOGL: HOLD signal (Confidence: 65%)
+  🎯 MSFT: BUY signal (Confidence: 78%)
+
+🛡️ Risk management validation...
+  ✅ Position sizing: Within limits
+  
+⚡ Executing trades (Paper Trading)...
+  📈 BUY AAPL: 10 shares @ $178.50
+  
+🎉 Demo trading session complete!
+📊 Portfolio value: $10,000 → $10,150 (+1.5%)
+```
+
+### 🎯 Quick Start Summary
+
+1. **Clone** the repository
+2. **Run** `.\003_setup.bat` (Windows) 
+3. **Run** `.\004_run.bat` and choose **Option 1**
+4. **Enjoy** the demo! 🚀
+
+No API keys needed for demo mode!
 
 ## 📁 Project Structure
 

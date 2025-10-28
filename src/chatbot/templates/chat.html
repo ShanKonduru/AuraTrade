@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraTrade Trading Assistant</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .chat-message {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .typing-indicator {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .chat-container {
+            height: calc(100vh - 120px);
+        }
+        
+        .message-content {
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        
+        .message-content h3 {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin: 0.5em 0;
+        }
+        
+        .message-content strong {
+            font-weight: bold;
+        }
+        
+        .message-content ul {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+        }
+        
+        .message-content li {
+            margin: 0.25em 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-robot text-2xl"></i>
+                    <h1 class="text-xl font-bold">AuraTrade Trading Assistant</h1>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div id="connection-status" class="flex items-center space-x-1">
+                        <div id="status-indicator" class="w-3 h-3 bg-green-400 rounded-full"></div>
+                        <span id="status-text" class="text-sm">Connected</span>
+                    </div>
+                    <button id="clear-chat" class="bg-blue-500 hover:bg-blue-400 px-3 py-1 rounded text-sm">
+                        <i class="fas fa-trash mr-1"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Chat Container -->
+    <div class="container mx-auto px-4 py-4">
+        <div class="bg-white rounded-lg shadow-lg chat-container flex flex-col">
+            
+            <!-- Chat Messages -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <!-- Messages will be dynamically added here -->
+            </div>
+            
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="px-4 py-2 hidden">
+                <div class="flex items-center space-x-2 text-gray-500">
+                    <div class="typing-indicator">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <span class="text-sm">AuraTrade is typing...</span>
+                </div>
+            </div>
+            
+            <!-- Input Area -->
+            <div class="border-t border-gray-200 p-4">
+                <div class="flex space-x-2">
+                    <input 
+                        type="text" 
+                        id="message-input" 
+                        placeholder="Ask me about stocks, trading, or market analysis..."
+                        class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        maxlength="500"
+                    >
+                    <button 
+                        id="send-button" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                    >
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button class="quick-action bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm" 
+                            data-message="Analyze Apple stock">
+                        📊 Analyze AAPL
+                    </button>
+                    <button class="quick-action bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm" 
+                            data-message="Show me growth stocks">
+                        📈 Growth Stocks
+                    </button>
+                    <button class="quick-action bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm" 
+                            data-message="What are good dividend stocks?">
+                        💰 Dividend Stocks
+                    </button>
+                    <button class="quick-action bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm" 
+                            data-message="Market news today">
+                        📰 Market News
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class TradingChatInterface {
+            constructor() {
+                this.socket = null;
+                this.isConnected = false;
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 5;
+                
+                this.initializeElements();
+                this.attachEventListeners();
+                this.connect();
+            }
+            
+            initializeElements() {
+                this.messagesContainer = document.getElementById('chat-messages');
+                this.messageInput = document.getElementById('message-input');
+                this.sendButton = document.getElementById('send-button');
+                this.typingIndicator = document.getElementById('typing-indicator');
+                this.statusIndicator = document.getElementById('status-indicator');
+                this.statusText = document.getElementById('status-text');
+                this.clearButton = document.getElementById('clear-chat');
+            }
+            
+            attachEventListeners() {
+                // Send message on button click
+                this.sendButton.addEventListener('click', () => this.sendMessage());
+                
+                // Send message on Enter key
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+                
+                // Quick action buttons
+                document.querySelectorAll('.quick-action').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const message = button.getAttribute('data-message');
+                        this.messageInput.value = message;
+                        this.sendMessage();
+                    });
+                });
+                
+                // Clear chat button
+                this.clearButton.addEventListener('click', () => this.clearChat());
+            }
+            
+            connect() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
+                
+                this.socket = new WebSocket(wsUrl);
+                
+                this.socket.onopen = () => {
+                    this.isConnected = true;
+                    this.reconnectAttempts = 0;
+                    this.updateConnectionStatus('Connected', 'green');
+                    console.log('WebSocket connected');
+                };
+                
+                this.socket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    this.handleMessage(data);
+                };
+                
+                this.socket.onclose = () => {
+                    this.isConnected = false;
+                    this.updateConnectionStatus('Disconnected', 'red');
+                    console.log('WebSocket disconnected');
+                    
+                    // Attempt to reconnect
+                    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                        this.reconnectAttempts++;
+                        this.updateConnectionStatus(`Reconnecting... (${this.reconnectAttempts})`, 'yellow');
+                        setTimeout(() => this.connect(), 2000 * this.reconnectAttempts);
+                    }
+                };
+                
+                this.socket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.updateConnectionStatus('Error', 'red');
+                };
+            }
+            
+            updateConnectionStatus(text, color) {
+                this.statusText.textContent = text;
+                this.statusIndicator.className = `w-3 h-3 rounded-full bg-${color}-400`;
+            }
+            
+            sendMessage() {
+                const message = this.messageInput.value.trim();
+                if (!message || !this.isConnected) return;
+                
+                const messageData = {
+                    type: 'user_message',
+                    content: message,
+                    timestamp: new Date().toISOString()
+                };
+                
+                this.socket.send(JSON.stringify(messageData));
+                this.messageInput.value = '';
+            }
+            
+            handleMessage(data) {
+                switch (data.type) {
+                    case 'user_message':
+                        this.addMessage(data.content, true, data.timestamp);
+                        break;
+                    case 'bot_message':
+                        this.hideTypingIndicator();
+                        this.addMessage(data.content, false, data.timestamp);
+                        break;
+                    case 'typing':
+                        this.showTypingIndicator();
+                        break;
+                }
+            }
+            
+            addMessage(content, isUser, timestamp) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `chat-message flex ${isUser ? 'justify-end' : 'justify-start'}`;
+                
+                const time = new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                messageDiv.innerHTML = `
+                    <div class="max-w-3xl ${isUser ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'} rounded-lg px-4 py-2">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <i class="fas ${isUser ? 'fa-user' : 'fa-robot'}"></i>
+                            <span class="font-medium text-sm">${isUser ? 'You' : 'AuraTrade'}</span>
+                            <span class="text-xs opacity-75">${time}</span>
+                        </div>
+                        <div class="message-content">${this.formatMessage(content)}</div>
+                    </div>
+                `;
+                
+                this.messagesContainer.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+            
+            formatMessage(content) {
+                // Convert markdown-like formatting to HTML
+                return content
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                    .replace(/^## (.*$)/gm, '<h3>$1</h3>')
+                    .replace(/^# (.*$)/gm, '<h3>$1</h3>')
+                    .replace(/^• (.*$)/gm, '<li>$1</li>')
+                    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+                    .replace(/<\/ul>\s*<ul>/g, '');
+            }
+            
+            showTypingIndicator() {
+                this.typingIndicator.classList.remove('hidden');
+                this.scrollToBottom();
+            }
+            
+            hideTypingIndicator() {
+                this.typingIndicator.classList.add('hidden');
+            }
+            
+            scrollToBottom() {
+                setTimeout(() => {
+                    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+                }, 100);
+            }
+            
+            async clearChat() {
+                if (confirm('Clear all chat messages?')) {
+                    try {
+                        await fetch('/api/chat/clear', { method: 'POST' });
+                        this.messagesContainer.innerHTML = '';
+                    } catch (error) {
+                        console.error('Failed to clear chat:', error);
+                    }
+                }
+            }
+        }
+        
+        // Initialize chat interface when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new TradingChatInterface();
+        });
+    </script>
+</body>
+</html>

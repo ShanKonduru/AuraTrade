@@ -12,7 +12,7 @@ import json
 from loguru import logger
 
 from ..base_agent import BaseAgent, AgentMessage, AgentResponse
-from ...agent_types import AgentType, MessageType, ActionType, RiskLevel
+from ..agent_types import AgentType, MessageType, ActionType, RiskLevel
 
 
 class OrderStatus(Enum):

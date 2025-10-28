@@ -15,7 +15,7 @@ from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassifica
 from loguru import logger
 
 from ..base_agent import BaseAgent, AgentMessage, AgentResponse
-from ...agent_types import AgentType, MessageType, ActionType, SignalConfidence, RiskLevel
+from ..agent_types import AgentType, MessageType, ActionType, SignalConfidence, RiskLevel
 
 
 @dataclass

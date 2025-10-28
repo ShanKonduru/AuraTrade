@@ -10,7 +10,7 @@ from langchain.chains import LLMChain
 from loguru import logger
 
 from ..base_agent import BaseAgent, AgentMessage, AgentResponse
-from ...agent_types import AgentType, MessageType, ActionType, SignalConfidence, RiskLevel
+from ..agent_types import AgentType, MessageType, ActionType, SignalConfidence, RiskLevel
 
 
 @dataclass
