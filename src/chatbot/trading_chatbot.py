@@ -250,8 +250,11 @@ class TradingChatbot:
     
     async def _handle_market_analysis(self, intent: Intent) -> str:
         """Handle market analysis requests"""
-        symbol = intent.entities.get("primary_symbol") or \
-                intent.entities.get("symbols", [None])[0]
+        # Safely extract symbol from intent entities
+        symbol = intent.entities.get("primary_symbol") if intent.entities else None
+        if not symbol and intent.entities:
+            symbols = intent.entities.get("symbols", [])
+            symbol = symbols[0] if symbols and len(symbols) > 0 else None
         
         if not symbol:
             return "🤔 Which stock would you like me to analyze? Please provide a stock symbol (e.g., AAPL, GOOGL, MSFT)."
@@ -272,9 +275,17 @@ class TradingChatbot:
     
     async def _handle_trading_recommendation(self, intent: Intent) -> str:
         """Handle trading recommendation requests"""
-        symbol = intent.entities.get("primary_symbol") or \
-                intent.entities.get("symbols", [None])[0]
-        amount = intent.entities.get("amounts", [None])[0]
+        # Safely extract symbol from intent entities
+        symbol = intent.entities.get("primary_symbol") if intent.entities else None
+        if not symbol and intent.entities:
+            symbols = intent.entities.get("symbols", [])
+            symbol = symbols[0] if symbols and len(symbols) > 0 else None
+        
+        # Safely extract amount from intent entities  
+        amount = None
+        if intent.entities:
+            amounts = intent.entities.get("amounts", [])
+            amount = amounts[0] if amounts and len(amounts) > 0 else None
         
         if not symbol:
             return "🤔 Which stock are you considering? Please provide a stock symbol."
@@ -293,8 +304,11 @@ class TradingChatbot:
     
     async def _handle_price_inquiry(self, intent: Intent) -> str:
         """Handle price inquiry requests"""
-        symbol = intent.entities.get("primary_symbol") or \
-                intent.entities.get("symbols", [None])[0]
+        # Safely extract symbol from intent entities
+        symbol = intent.entities.get("primary_symbol") if intent.entities else None
+        if not symbol and intent.entities:
+            symbols = intent.entities.get("symbols", [])
+            symbol = symbols[0] if symbols and len(symbols) > 0 else None
         
         if not symbol:
             return "🤔 Which stock price would you like to know? Please provide a stock symbol."
@@ -319,8 +333,11 @@ class TradingChatbot:
     
     async def _handle_stop_loss(self, intent: Intent) -> str:
         """Handle stop loss calculation requests"""
-        symbol = intent.entities.get("primary_symbol") or \
-                intent.entities.get("symbols", [None])[0]
+        # Safely extract symbol from intent entities
+        symbol = intent.entities.get("primary_symbol") if intent.entities else None
+        if not symbol and intent.entities:
+            symbols = intent.entities.get("symbols", [])
+            symbol = symbols[0] if symbols and len(symbols) > 0 else None
         
         if not symbol:
             return "🤔 For which stock would you like stop-loss guidance? Please provide more details about your position."
